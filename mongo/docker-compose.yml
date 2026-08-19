@@ -1,0 +1,43 @@
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: unless-stopped
+
+    ports:
+      - "27017:27017"
+      # - "127.0.0.1:27017:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+
+    volumes:
+      - ./mongo-data:/data/db
+      - ./mongo-config:/data/configdb
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+
+    command:
+      - mongod
+      - --auth
+      - --bind_ip_all
+
+    mem_limit: 2g
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    healthcheck:
+      test: >
+        mongosh --quiet
+        -u root
+        -p password
+        --authenticationDatabase admin
+        --eval "db.adminCommand('ping').ok"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

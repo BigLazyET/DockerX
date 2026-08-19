@@ -1,0 +1,35 @@
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: unless-stopped
+
+    ports:
+      # Portainer HTTPS Web UI，推荐使用
+      - "9443:9443"
+
+      # Portainer HTTP Web UI，可选；不需要 HTTP 时可以注释掉
+      # - "9000:9000"
+
+      # Edge Agent 隧道端口；不用 Edge 功能时可以注释掉
+      # - "8000:8000"
+
+    volumes:
+      # 允许 Portainer 管理宿主机 Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Portainer 数据持久化目录，保存账号、配置、环境、证书等
+      - ./portainer-data:/data
+
+      # 可选：挂载宿主机时区
+      - /etc/localtime:/etc/localtime:ro
+
+    # 可选：显式指定启动命令，默认可以不写
+    command:
+      - --http-disabled
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
