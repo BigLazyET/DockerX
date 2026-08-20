@@ -1,0 +1,34 @@
+services:
+
+  mongoclient:
+    image: mongoclient/mongoclient:latest
+    container_name: mongoclient
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - mongoclient_data:/data/db
+      - /etc/localtime:/etc/localtime:ro
+
+    # depends_on:
+    #   - mongo
+
+    # networks:
+    #   - management
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  mongoclient_data:
+    name: mongoclient_data
+
+# networks:
+#   management:
+#     name: management
+#     driver: bridge

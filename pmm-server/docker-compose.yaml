@@ -1,0 +1,46 @@
+services:
+  pmm-server:
+    image: percona/pmm-server:3.9.1
+    container_name: pmm-server
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "8443:8443"
+    volumes:
+      - pmm-data:/srv
+    environment:
+      PMM_ENABLE_TELEMETRY: "false"
+      PMM_ENABLE_UPDATES: "false"
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -k -f https://localhost:443/v1/readyz || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+    #   start_period: 120s
+
+  pmm-client:
+    image: percona/pmm-client:3.9.1
+    container_name: pmm-client
+    restart: always
+    # depends_on:
+    #   pmm-server:
+    #     condition: service_healthy
+    environment:
+      PMM_AGENT_SETUP: "1"
+      PMM_AGENT_SETUP_FORCE: "1"
+      PMM_AGENT_SETUP_NODE_NAME: "mac-mini"
+      PMM_AGENT_SETUP_NODE_TYPE: "container"
+      PMM_AGENT_SERVER_ADDRESS: "host.docker.internal:8443"
+      # PMM_AGENT_SERVER_ADDRESS: "pmm-server:443"
+      PMM_AGENT_SERVER_USERNAME: "admin"
+      PMM_AGENT_SERVER_PASSWORD: ".netcore"
+      PMM_AGENT_SERVER_INSECURE_TLS: "1"
+      PMM_AGENT_CONFIG_FILE: "config/pmm-agent.yaml"
+    volumes:
+      - pmm-client-data:/usr/local/percona/pmm
+
+volumes:
+  pmm-data:
+    name: pmm-data
+  pmm-client-data:
+    name: pmm-client-data

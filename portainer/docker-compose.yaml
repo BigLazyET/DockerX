@@ -19,7 +19,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
       # Portainer 数据持久化目录，保存账号、配置、环境、证书等
-      - ./portainer-data:/data
+      - portainer_data:/data
 
       # 可选：挂载宿主机时区
       - /etc/localtime:/etc/localtime:ro
@@ -33,3 +33,7 @@ services:
       options:
         max-size: "100m"
         max-file: "3"
+
+volumes:
+    portainer_data:
+      name: portainer_data
