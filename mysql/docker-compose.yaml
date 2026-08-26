@@ -1,0 +1,73 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mysql-debezium-demo
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: demo
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+    command:
+      [
+        "mysqld",
+        "--server-id=1",
+        "--log-bin=mysql-bin",
+        "--binlog-format=ROW",
+        "--binlog-row-image=FULL",
+        "--gtid-mode=ON",
+        "--enforce-gtid-consistency=ON"
+      ]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.9
+    container_name: redpanda-debezium-demo
+    command:
+      [
+        "redpanda",
+        "start",
+        "--overprovisioned",
+        "--smp=1",
+        "--memory=512M",
+        "--reserve-memory=0M",
+        "--node-id=0",
+        "--check=false",
+        "--kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092",
+        "--advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092"
+      ]
+    ports:
+      - "19092:19092"
+      - "9644:9644"
+
+  debezium-connect:
+    image: debezium/connect:2.7.3.Final
+    container_name: debezium-connect-demo
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      GROUP_ID: debezium-connect-cluster
+      CONFIG_STORAGE_TOPIC: debezium_connect_configs
+      OFFSET_STORAGE_TOPIC: debezium_connect_offsets
+      STATUS_STORAGE_TOPIC: debezium_connect_statuses
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+volumes:
+  mysql_data:

@@ -1,0 +1,10 @@
+CREATE TABLE users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(64) NOT NULL,
+  age INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO users(name, age) VALUES ('Alice', 20);
+UPDATE users SET age = 21 WHERE name = 'Alice';
+DELETE FROM users WHERE name = 'Alice';

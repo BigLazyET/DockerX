@@ -8,7 +8,7 @@ use admin
 
 db.createUser({
   user: "pmm",
-  pwd: "pmm_password",
+  pwd: ".netcore",
   roles: [
     { role: "clusterMonitor", db: "admin" },
     { role: "readAnyDatabase", db: "admin" },

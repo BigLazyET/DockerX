@@ -1,0 +1,79 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mysql-debezium-demo
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: demo
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+    command:
+      [
+        "mysqld",
+        # 开启 replication/binlog 场景时必须有唯一 server-id。MySQL replication 协议要求每个 server/client replica 都有不同的 ID
+        "--server-id=1",
+        # 开启 binary log。如果不启用这个参数，MySQL 不会记录 binlog，CDC 或 replication client 也就没有东西可读
+        "--log-bin=mysql-bin",
+        # 设置 binlog 格式为 ROW，CDC 通常必须用 ROW，因为它记录的是行级变更，而不是单纯 SQL 语句
+        "--binlog-format=ROW",
+        # 控制 row-based binlog 里记录多少列数据。FULL 表示记录完整行镜像。对于 CDC 最友好，因为 update/delete 时可以拿到更完整的数据。
+        "--binlog-row-image=FULL",
+        # 开启 GTID。GTID 是 Global Transaction Identifier，全局事务 ID。它比 binlog file + position 更适合做复制和断点续传。
+        "--gtid-mode=ON",
+        # 强制事务语句满足 GTID 一致性要求。开启 GTID 时通常一起开启。
+        "--enforce-gtid-consistency=ON"
+      ]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.9
+    container_name: redpanda-debezium-demo
+    command:
+      [
+        "redpanda",
+        "start",
+        "--overprovisioned",
+        "--smp=1",
+        "--memory=512M",
+        "--reserve-memory=0M",
+        "--node-id=0",
+        "--check=false",
+        "--kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092",
+        "--advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:19092"
+      ]
+    ports:
+      - "19092:19092"
+      - "9644:9644"
+
+  debezium-connect:
+    image: debezium/connect:2.7.3.Final
+    container_name: debezium-connect-demo
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      GROUP_ID: debezium-connect-cluster
+      CONFIG_STORAGE_TOPIC: debezium_connect_configs
+      OFFSET_STORAGE_TOPIC: debezium_connect_offsets
+      STATUS_STORAGE_TOPIC: debezium_connect_statuses
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+volumes:
+  mysql_data:
