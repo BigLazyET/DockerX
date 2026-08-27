@@ -2,28 +2,26 @@ version: "3.9"
 
 services:
   redis:
-    image: redis:latest
+    image: redis/redis-stack-server:latest
     container_name: redis
     restart: unless-stopped
     ports:
       - "6379:6379"
-    command:
-      [
-        "redis-server",
-        # 给 Redis 设置密码，开发测试可以固定成简单密码
-        "--requirepass", ".netcore",
-        # 开启 AOF 持久化
-        "--appendonly", "yes",
-        "--appendfsync", "everysec",
-        # 限制 Redis 最大内存，方便模拟缓存容量不足、key 被淘汰等情况
-        "--maxmemory", "256mb",
-        # Redis 内存满时，从所有 key 中按 LRU 策略淘汰。适合模拟缓存被动淘汰
-        "--maxmemory-policy", "allkeys-lru",
-        # “只淘汰带 TTL 的 key”，可以改成
-        # --maxmemory-policy volatile-lru
-        # 开启 key 过期事件通知，方便测试缓存雪崩时观察大量 key 同时过期
-        "--notify-keyspace-events", "Ex"
-      ]
+    environment:
+      # 给 Redis 设置密码，开发测试可以固定成简单密码
+      # 开启 AOF 持久化
+      # AOF 每秒刷盘一次，兼顾性能和数据安全
+      # 限制 Redis 最大内存，方便模拟缓存容量不足、key 被淘汰等情况
+      # Redis 内存满时，从所有 key 中按 LRU 策略淘汰
+      # 开启 key 过期事件通知，方便测试缓存雪崩时观察大量 key 同时过期
+      REDIS_ARGS: >
+        --requirepass .netcore
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --notify-keyspace-events Ex
+        
     volumes:
       - redis-data:/data
     networks:
