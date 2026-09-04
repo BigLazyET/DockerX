@@ -22,7 +22,8 @@ exporters:
     brokers:
       - kafka:9092
     topic: otel-traces
-    encoding: otlp_proto
+    # encoding: otlp_proto
+    encoding: otlp_json
 
   kafka/metrics:
     brokers:

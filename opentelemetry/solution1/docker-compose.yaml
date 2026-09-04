@@ -8,25 +8,43 @@ services:
       - "9092:9092"
       - "29092:29092"
     environment:
+      # KRaft 模式下 Kafka 集群的唯一 ID
+      # KRaft 模式下 Kafka 不再依赖 ZooKeeper，需要一个集群 ID 来格式化本地 metadata log 存储。
       CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
-  
+
+      # 当前 Kafka 节点 ID	单节点时设置为 1
+      # 在 KRaft 模式里，每个 broker/controller 节点都必须有唯一 node.id。
       KAFKA_NODE_ID: "1"
+      # 当前进程承担的角色	broker,controller 表示这个节点同时是 broker 和 controller
+      # broker	接收 producer 写入、consumer 读取，存储 topic partition 数据
+      # controller	管理集群 metadata，例如 topic、partition、broker 状态、leader 选举
       KAFKA_PROCESS_ROLES: "broker,controller"
-  
+
+      # Kafka 实际监听哪些地址和端口	容器内监听 broker、宿主机访问、controller 通信端口
       KAFKA_LISTENERS: "PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093"
+      # Kafka 告诉客户端“你应该用哪个地址连我”	Compose 内部用 kafka:9092，宿主机用 localhost:29092
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
+      # listener 名称和安全协议的映射关系	三个 listener 都使用 PLAINTEXT 明文协议
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
-  
+
+      # 哪些 listener 用于 controller 通信	指定 CONTROLLER listener 给 KRaft controller 使用
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      # KRaft controller quorum 成员列表	单节点 controller 是 1@kafka:9093
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-  
+
+      # broker 之间通信使用哪个 listener	单节点也要配置，未来多 broker 时 broker 间走 PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-  
+
+      # __consumer_offsets topic 的副本数	单节点必须是 1，否则无法创建 offsets topic
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      # Kafka 事务状态 topic 的副本数	单节点必须是 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      # 事务状态 topic 最小同步副本数	单节点必须是 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
-  
+
+      # consumer group 首次 rebalance 前等待时间	本地开发设 0，让 consumer group 更快可用
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      # 是否允许客户端访问不存在 topic 时自动创建	true 表示 OTel 写入 otel-traces 等 topic 时可自动创建
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
@@ -94,6 +112,18 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       clickhouse:
+        condition: service_healthy
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "9093:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka:
         condition: service_healthy
 
 volumes:
